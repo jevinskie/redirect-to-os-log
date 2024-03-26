@@ -56,8 +56,10 @@ jobs:
       run: cmake --build build/coverage -t coverage
 
     - name: Submit to codecov.io
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v4.0.1
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: jevinskie/redirect-to-os-log
         file: build/coverage/coverage.info
 
   sanitize:
@@ -125,7 +127,7 @@ jobs:
 
     runs-on: macos-14
 
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository_owner == 'jevin'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository_owner == 'jevinskie'
 
     steps:
     - uses: actions/checkout@v4
