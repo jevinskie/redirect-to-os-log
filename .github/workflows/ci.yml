@@ -19,11 +19,11 @@ jobs:
     - uses: actions/setup-python@v5.1.0
       with: {python-version: '3.11'}
 
-    - name: Install cmake, codespell, and LLVM
-      run: brew install cmake codespell llvm
+    - name: Install cmake, codespell, and clang-format
+      run: brew install cmake codespell clang-format
 
     - name: Lint
-      run: cmake -D FORMAT_COMMAND=$(brew --prefix llvm)/bin/clang-format -P cmake/lint.cmake
+      run: cmake -DFORMAT_COMMAND=$(brew --prefix clang-format)/bin/clang-format -P cmake/lint.cmake
 
     - name: Spell check
       if: always()
