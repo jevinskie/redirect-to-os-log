@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.28)
+
+include("${CMAKE_CURRENT_LIST_DIR}/script-arg-parsing.cmake")
 
 macro(default name)
   if(NOT DEFINED "${name}")
@@ -9,9 +11,9 @@ endmacro()
 default(FORMAT_COMMAND clang-format)
 default(
     PATTERNS
-    source/*.cpp source/*.hpp
-    include/*.hpp
-    test/*.cpp test/*.hpp
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/source/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/test/*.hpp"
 )
 default(FIX NO)
 
@@ -25,12 +27,12 @@ endif()
 file(GLOB_RECURSE files ${PATTERNS})
 set(badly_formatted "")
 set(output "")
-string(LENGTH "${CMAKE_SOURCE_DIR}/" path_prefix_length)
+string(LENGTH "${CMAKE_CURRENT_SOURCE_DIR}/" path_prefix_length)
 
 foreach(file IN LISTS files)
   execute_process(
       COMMAND "${FORMAT_COMMAND}" --style=file "${flag}" "${file}"
-      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       RESULT_VARIABLE result
       ${args}
   )

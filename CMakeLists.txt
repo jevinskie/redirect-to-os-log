@@ -10,7 +10,6 @@ project(
     LANGUAGES CXX
 )
 
-include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
 # ---- Declare library ----

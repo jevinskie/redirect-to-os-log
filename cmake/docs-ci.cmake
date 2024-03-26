@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.28)
+
+include("${CMAKE_CURRENT_LIST_DIR}/script-arg-parsing.cmake")
 
 foreach(var IN ITEMS PROJECT_BINARY_DIR PROJECT_SOURCE_DIR)
   if(NOT DEFINED "${var}")
@@ -15,10 +17,9 @@ if(NOT IS_DIRECTORY "${mcss_SOURCE_DIR}")
   file(MAKE_DIRECTORY "${mcss_SOURCE_DIR}")
   file(
       DOWNLOAD
-      https://github.com/friendlyanon/m.css/releases/download/release-1/mcss.zip
+      https://github.com/mosra/m.css/archive/refs/heads/master.zip
       "${mcss_SOURCE_DIR}/mcss.zip"
       STATUS status
-      EXPECTED_MD5 00cd2757ebafb9bcba7f5d399b3bec7f
   )
   if(NOT status MATCHES "^0;")
     message(FATAL_ERROR "Download failed with ${status}")
@@ -30,6 +31,22 @@ if(NOT IS_DIRECTORY "${mcss_SOURCE_DIR}")
   )
   if(NOT result EQUAL "0")
     message(FATAL_ERROR "Extraction failed with ${result}")
+  endif()
+  execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E copy_directory m.css-master .
+      WORKING_DIRECTORY "${mcss_SOURCE_DIR}"
+      RESULT_VARIABLE result
+  )
+  if(NOT result EQUAL "0")
+    message(FATAL_ERROR "Copy failed with ${result}")
+  endif()
+  execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E rm -rf m.css-master
+      WORKING_DIRECTORY "${mcss_SOURCE_DIR}"
+      RESULT_VARIABLE result
+  )
+  if(NOT result EQUAL "0")
+    message(FATAL_ERROR "Directory removal failed with ${result}")
   endif()
   file(REMOVE "${mcss_SOURCE_DIR}/mcss.zip")
 endif()

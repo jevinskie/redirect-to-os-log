@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.28)
 
 project(redirect-to-os-logTests LANGUAGES CXX)
 
-include(../cmake/project-is-top-level.cmake)
 include(../cmake/folders.cmake)
 
 # ---- Dependencies ----

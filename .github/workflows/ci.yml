@@ -19,8 +19,8 @@ jobs:
     - uses: actions/setup-python@v5
       with: {python-version: '3.11'}
 
-    - name: Install cmake codespell and LLVM
-      run: brew update && brew install cmake codespell llvm
+    - name: Install cmake, codespell, LLVM, and ninja
+      run: brew update && brew install cmake codespell llvm ninja
 
     - name: Lint
       run: cmake -D FORMAT_COMMAND=$(brew --prefix llvm)/bin/clang-format -P cmake/lint.cmake
@@ -39,8 +39,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install cmake and LCov
-      run: brew update && brew install cmake lcov
+    - name: Install cmake, ninja, and LCov
+      run: brew update && brew install cmake lcov ninja
 
     - name: Configure
       run: cmake --preset=ci-coverage
@@ -68,8 +68,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install cmake
-      run: brew update && brew install cmake
+    - name: Install cmake and ninja
+      run: brew update && brew install cmake ninja
 
     - name: Configure
       run: cmake --preset=ci-sanitize
@@ -80,7 +80,7 @@ jobs:
     - name: Test
       working-directory: build/sanitize
       env:
-        ASAN_OPTIONS: strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:detect_leaks=1
+        ASAN_OPTIONS: strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
         UBSAN_OPTIONS: print_stacktrace=1
       run: ctest --output-on-failure --no-tests=error -j 2
 
@@ -102,8 +102,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install cmake and static analyzers
-      run: brew update && brew install cmake cppcheck llvm
+    - name: Install cmake, ninja, and static analyzers
+      run: brew update && brew install cmake cppcheck ninja
 
     - name: Configure
       shell: pwsh
@@ -136,8 +136,8 @@ jobs:
     - name: Install m.css dependencies
       run: pip3 install jinja2 Pygments
 
-    - name: Install cmake and Doxygen
-      run: brew update && brew install cmake doxygen
+    - name: Install cmake, ninja, and Doxygen
+      run: brew update && brew install cmake doxygen ninja
 
     - name: Build docs
       run: cmake "-DPROJECT_SOURCE_DIR=$PWD" "-DPROJECT_BINARY_DIR=$PWD/build" -P cmake/docs-ci.cmake

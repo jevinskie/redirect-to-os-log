@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.28)
+
+include("${CMAKE_CURRENT_LIST_DIR}/script-arg-parsing.cmake")
 
 macro(default name)
   if(NOT DEFINED "${name}")
@@ -16,7 +18,7 @@ endif()
 
 execute_process(
     COMMAND "${SPELL_COMMAND}" ${flag}
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     RESULT_VARIABLE result
 )
 

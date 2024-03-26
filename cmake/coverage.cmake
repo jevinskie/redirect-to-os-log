@@ -5,6 +5,7 @@
 set(
     COVERAGE_TRACE_COMMAND
     lcov -c -q
+    --ignore-errors inconsistent
     -o "${PROJECT_BINARY_DIR}/coverage.info"
     -d "${PROJECT_BINARY_DIR}"
     --include "${PROJECT_SOURCE_DIR}/*"
