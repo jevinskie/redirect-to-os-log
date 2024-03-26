@@ -1,0 +1,149 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+    - main
+
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  lint:
+    runs-on: macos-14
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with: {python-version: '3.11'}
+
+    - name: Install cmake codespell and LLVM
+      run: brew install cmake codespell llvm
+
+    - name: Lint
+      run: cmake -D FORMAT_COMMAND=$(brew --prefix llvm)/bin/clang-format -P cmake/lint.cmake
+
+    - name: Spell check
+      if: always()
+      run: cmake -P cmake/spell.cmake
+
+  coverage:
+    needs: [lint]
+
+    runs-on: macos-14
+
+    if: github.repository_owner == 'jevinskie'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cmake and LCov
+      run: brew install cmake lcov
+
+    - name: Configure
+      run: cmake --preset=ci-coverage
+
+    - name: Build
+      run: cmake --build build/coverage -j 2
+
+    - name: Test
+      working-directory: build/coverage
+      run: ctest --output-on-failure --no-tests=error -j 2
+
+    - name: Process coverage info
+      run: cmake --build build/coverage -t coverage
+
+    - name: Submit to codecov.io
+      uses: codecov/codecov-action@v4
+      with:
+        file: build/coverage/coverage.info
+
+  sanitize:
+    needs: [lint]
+
+    runs-on: macos-14
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cmake
+      run: brew install cmake
+
+    - name: Configure
+      run: cmake --preset=ci-sanitize
+
+    - name: Build
+      run: cmake --build build/sanitize -j 2
+
+    - name: Test
+      working-directory: build/sanitize
+      env:
+        ASAN_OPTIONS: strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:detect_leaks=1
+        UBSAN_OPTIONS: print_stacktrace=1
+      run: ctest --output-on-failure --no-tests=error -j 2
+
+  test:
+    needs: [lint]
+
+    strategy:
+      matrix:
+        os: [macos-14]
+
+        type: [shared, static]
+
+        include:
+        - {type: shared, shared: YES}
+        - {type: static, shared: NO}
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cmake and static analyzers
+      run: brew install cmake cppcheck llvm
+
+    - name: Configure
+      shell: pwsh
+      run: cmake "--preset=ci-$("${{ matrix.os }}".split("-")[0])" -D BUILD_SHARED_LIBS=${{ matrix.shared }}
+
+    - name: Build
+      run: cmake --build build --config Release -j 2
+
+    - name: Install
+      run: cmake --install build --config Release --prefix prefix
+
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure --no-tests=error -C Release -j 2
+
+  docs:
+    # Deploy docs only when builds succeed
+    needs: [sanitize, test]
+
+    runs-on: macos-14
+
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository_owner == 'jevin'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with: {python-version: '3.11'}
+
+    - name: Install m.css dependencies
+      run: pip3 install jinja2 Pygments
+
+    - name: Install cmake and Doxygen
+      run: brew install cmake doxygen
+
+    - name: Build docs
+      run: cmake "-DPROJECT_SOURCE_DIR=$PWD" "-DPROJECT_BINARY_DIR=$PWD/build" -P cmake/docs-ci.cmake
+
+    - name: Deploy docs
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: build/docs/html
