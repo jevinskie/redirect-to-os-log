@@ -14,13 +14,13 @@ jobs:
     runs-on: macos-14
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.1.1
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5.1.0
       with: {python-version: '3.11'}
 
-    - name: Install cmake, codespell, LLVM, and ninja
-      run: brew update && brew install cmake codespell llvm ninja
+    - name: Install cmake, codespell, and LLVM
+      run: brew install cmake codespell llvm
 
     - name: Lint
       run: cmake -D FORMAT_COMMAND=$(brew --prefix llvm)/bin/clang-format -P cmake/lint.cmake
@@ -37,10 +37,10 @@ jobs:
     if: github.repository_owner == 'jevinskie'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.1.1
 
-    - name: Install cmake, ninja, and LCov
-      run: brew update && brew install cmake lcov ninja
+    - name: Install cmake and LCov
+      run: brew brew install cmake lcov
 
     - name: Configure
       run: cmake --preset=ci-coverage
@@ -68,10 +68,10 @@ jobs:
     runs-on: macos-14
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.1.1
 
-    - name: Install cmake and ninja
-      run: brew update && brew install cmake ninja
+    - name: Install cmake
+      run: brew install cmake
 
     - name: Configure
       run: cmake --preset=ci-sanitize
@@ -102,10 +102,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.1.1
 
-    - name: Install cmake, ninja, and static analyzers
-      run: brew update && brew install cmake cppcheck ninja
+    - name: Install cmake and static analyzers
+      run: brew install cmake cppcheck
 
     - name: Configure
       shell: pwsh
@@ -130,22 +130,24 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository_owner == 'jevinskie'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.1.1
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5.1.0
       with: {python-version: '3.11'}
 
     - name: Install m.css dependencies
       run: pip3 install jinja2 Pygments
 
-    - name: Install cmake, ninja, and Doxygen
-      run: brew update && brew install cmake doxygen ninja
+    - name: Install cmake and Doxygen
+      run: brew install cmake doxygen
 
     - name: Build docs
       run: cmake "-DPROJECT_SOURCE_DIR=$PWD" "-DPROJECT_BINARY_DIR=$PWD/build" -P cmake/docs-ci.cmake
 
     - name: Deploy docs
-      uses: peaceiris/actions-gh-pages@v3
+      uses: peaceiris/actions-gh-pages@v3.9.3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: build/docs/html
+        user_name: Jevin Sweval
+        user_email: jevinsweval@gmail.com
