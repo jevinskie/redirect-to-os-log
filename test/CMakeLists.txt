@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(redirect-to-os-logTests LANGUAGES CXX)
+project(redirect-to-os-log-tests LANGUAGES CXX)
 
 include(../cmake/folders.cmake)
 
@@ -13,12 +13,10 @@ endif()
 
 # ---- Tests ----
 
-add_executable(redirect-to-os-log_test source/redirect-to-os-log_test.cpp)
-target_link_libraries(redirect-to-os-log_test PRIVATE redirect-to-os-log::redirect-to-os-log)
-target_compile_features(redirect-to-os-log_test PRIVATE cxx_std_20)
-
-add_test(NAME redirect-to-os-log_test COMMAND redirect-to-os-log_test)
+add_subdirectory(test-helper)
+add_subdirectory(lib)
+add_subdirectory(tool)
 
 # ---- End-of-file commands ----
 
-add_folders(Test)
+add_folders(test)

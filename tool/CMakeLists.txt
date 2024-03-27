@@ -1,0 +1,5 @@
+add_executable(redirect-to-os-log redirect-to-os-log.cpp)
+target_compile_features(redirect-to-os-log PRIVATE cxx_std_20)
+set_target_properties(redirect-to-os-log PROPERTIES CXX_EXTENSIONS ON)
+target_compile_options(redirect-to-os-log PRIVATE -Wall -Wextra -Wpedantic -Wno-gnu-line-marker)
+target_link_libraries(redirect-to-os-log PRIVATE redirect-to-os-log-lib)
