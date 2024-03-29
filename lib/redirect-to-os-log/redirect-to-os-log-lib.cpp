@@ -25,6 +25,18 @@ static int stderr_pipe[2];
 int exit_pipe[2];
 static int original_stdout;
 static int original_stderr;
+static os_log_t logger_stdout;
+static os_log_t logger_stderr;
+
+bool should_echo_from_env_var() {
+    const auto do_echo = getenv("REDIRECT_TO_OS_LOG");
+    if (do_echo) {
+        if (!strcmp(do_echo, "1") || !strcmp(do_echo, "YES") || !strcmp(do_echo, "ON")) {
+            return true;
+        }
+    }
+    return false;
+}
 
 ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count) {
     assert(count >= 0);
@@ -46,7 +58,22 @@ ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count) {
     return written;
 }
 
-void log_output(int fd, os_log_t logger, bool echo) {
+static void write_and_log(int fd, const std::string &line, bool echo) {
+    const size_t max_log_length = 1024;
+
+    if (echo) {
+        write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, line.c_str(), line.length());
+        write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, "\n", 1);
+    }
+
+    for (size_t pos = 0; pos < line.length(); pos += max_log_length) {
+        std::string chunk = line.substr(pos, max_log_length);
+        os_log_with_type(logger, fd == STDOUT_FILENO ? OS_LOG_TYPE_DEFAULT : OS_LOG_TYPE_ERROR,
+                         "%{public}s", chunk.c_str());
+    }
+}
+
+static void log_output(int fd, os_log_t logger, bool echo) {
     char buffer[1024];
     ssize_t bytes_read;
 
@@ -54,12 +81,13 @@ void log_output(int fd, os_log_t logger, bool echo) {
         if (echo) {
             safe_write(fd, buffer, bytes_read);
         }
-        os_log_with_type(logger, fd == STDOUT_FILENO ? OS_LOG_TYPE_DEFAULT : OS_LOG_TYPE_ERROR,
-                         "%{public}s", buffer);
+        os_log_with_type(fd == STDOUT_FILENO ? logger_stdout : logger_stderr,
+                         fd == STDOUT_FILENO ? OS_LOG_TYPE_DEFAULT : OS_LOG_TYPE_ERROR,
+                         "%{public}.*s", static_cast<int>(bytes_read), buffer);
     }
 }
 
-static void setup_io_redirection(const bool is_injected) {
+static void setup_io_redirection(const char *const __nonnull subsystem, const bool is_injected) {
     // Create pipes for stdout and stderr
     assert(!pipe(stdout_pipe));
     assert(!pipe(stderr_pipe));
@@ -80,11 +108,16 @@ static void setup_io_redirection(const bool is_injected) {
     // Close the original write ends of the pipes
     assert(!close(stdout_pipe[1]));
     assert(!close(stderr_pipe[1]));
+
+    logger_stdout = os_log_create(subsystem, "stdout");
+    logger_stderr = os_log_create(subsystem, "stderr");
 }
 
 void *__nullable io_loop(void *__nonnull arg) {
-    const auto is_injected = *reinterpret_cast<const bool *>(arg);
-    setup_io_redirection(is_injected);
+    const auto args        = reinterpret_cast<const log_args *>(arg);
+    const auto is_injected = args->is_injected;
+    const auto echo        = args->echo;
+    setup_io_redirection(args->subsystem, is_injected);
 
     struct kevent kev[3];
     int kq = kqueue();
@@ -107,13 +140,7 @@ void *__nullable io_loop(void *__nonnull arg) {
         for (int i = 0; i < nev; ++i) {
             int fd = static_cast<int>(event_list[i].ident);
             if (fd == stdout_pipe[0] || fd == stderr_pipe[0]) {
-                // Data is available to read, echo it to the original stdout or stderr
-                char buffer[1024];
-                ssize_t bytes_read = read(fd, buffer, sizeof(buffer));
-                if (bytes_read > 0) {
-                    int output_fd = (fd == stdout_pipe[0]) ? original_stdout : original_stderr;
-                    safe_write(output_fd, buffer, bytes_read);
-                }
+                log_output(fd, echo);
             }
             if (is_injected && fd == exit_pipe[0]) {
                 do_exit = true;
