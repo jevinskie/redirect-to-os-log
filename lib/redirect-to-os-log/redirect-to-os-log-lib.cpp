@@ -27,9 +27,9 @@ static int original_stdout;
 static int original_stderr;
 
 ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count) {
+    assert(count >= 0);
     const auto written = count;
     auto buffer        = static_cast<const char *>(buf);
-    assert(count >= 0);
 
     while (count > 0) {
         ssize_t res = write(fd, buffer, static_cast<size_t>(count));
@@ -50,17 +50,16 @@ void log_output(int fd, os_log_t logger, bool echo) {
     char buffer[1024];
     ssize_t bytes_read;
 
-    while ((bytes_read = read(fd, buffer, sizeof(buffer) - 1)) > 0) {
-        buffer[bytes_read] = '\0';
+    while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
         if (echo) {
-            safe_write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, buffer, bytes_read);
+            safe_write(fd, buffer, bytes_read);
         }
         os_log_with_type(logger, fd == STDOUT_FILENO ? OS_LOG_TYPE_DEFAULT : OS_LOG_TYPE_ERROR,
                          "%{public}s", buffer);
     }
 }
 
-void setup_io_redirection(const bool is_injected) {
+static void setup_io_redirection(const bool is_injected) {
     // Create pipes for stdout and stderr
     assert(!pipe(stdout_pipe));
     assert(!pipe(stderr_pipe));
@@ -84,25 +83,29 @@ void setup_io_redirection(const bool is_injected) {
 }
 
 void *__nullable io_loop(void *__nonnull arg) {
-    const auto is_injected = *reinterpret_cast<bool *>(arg);
+    const auto is_injected = *reinterpret_cast<const bool *>(arg);
+    setup_io_redirection(is_injected);
+
     struct kevent kev[3];
     int kq = kqueue();
     assert(kq >= 0);
+    bool do_exit = false;
 
     // Set up the kevents to monitor the read ends of the pipes
-    EV_SET(&kev[0], stdout_pipe[0], EVFILT_READ, EV_ADD, 0, 0, NULL);
-    EV_SET(&kev[1], stderr_pipe[0], EVFILT_READ, EV_ADD, 0, 0, NULL);
+    EV_SET(&kev[0], stdout_pipe[0], EVFILT_READ, EV_ADD, 0, 0, nullptr);
+    EV_SET(&kev[1], stderr_pipe[0], EVFILT_READ, EV_ADD, 0, 0, nullptr);
     if (is_injected) {
-        EV_SET(&kev[2], exit_pipe[0], EVFILT_READ, EV_ADD, 0, 0, NULL);
+        EV_SET(&kev[2], exit_pipe[0], EVFILT_READ, EV_ADD, 0, 0, nullptr);
     }
-    kevent(kq, kev, 2 + is_injected, NULL, 0, NULL);
+    assert(kevent(kq, kev, 2 + is_injected, nullptr, 0, nullptr) == 2 + is_injected);
 
-    while (true) {
+    while (!do_exit) {
         // Wait for events
-        struct kevent event_list[2];
-        int nev = kevent(kq, NULL, 0, event_list, 2, NULL);
-        for (int i = 0; i < nev; i++) {
-            int fd = event_list[i].ident;
+        struct kevent event_list[3];
+        int nev = kevent(kq, nullptr, 0, event_list, 2 + is_injected, nullptr);
+        assert(nev >= 0);
+        for (int i = 0; i < nev; ++i) {
+            int fd = static_cast<int>(event_list[i].ident);
             if (fd == stdout_pipe[0] || fd == stderr_pipe[0]) {
                 // Data is available to read, echo it to the original stdout or stderr
                 char buffer[1024];
@@ -112,11 +115,16 @@ void *__nullable io_loop(void *__nonnull arg) {
                     safe_write(output_fd, buffer, bytes_read);
                 }
             }
+            if (is_injected && fd == exit_pipe[0]) {
+                do_exit = true;
+            }
         }
     }
 
-    close(kq);
-    pthread_exit(nullptr);
+    assert(!close(kq));
+    if (is_injected) {
+        pthread_exit(nullptr);
+    }
     return nullptr;
 }
 

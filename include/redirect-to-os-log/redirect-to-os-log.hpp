@@ -13,7 +13,4 @@ extern ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count);
 [[gnu::visibility("default")]]
 void *__nullable io_loop(void *__nonnull arg);
 
-[[gnu::visibility("default")]]
-void setup_io_redirection(const bool is_injected);
-
 } // namespace redirect_to_os_log
