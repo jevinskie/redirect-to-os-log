@@ -1,24 +1,19 @@
 #pragma once
 
-#include <string>
+#include <unistd.h>
 
-/**
- * @brief Reports the name of the library
- *
- * Please see the note above for considerations when creating shared libraries.
- */
-class [[gnu::visibility("default")]] exported_class {
-public:
-    /**
-     * @brief Initializes the name field to the name of the project
-     */
-    exported_class();
+namespace redirect_to_os_log {
 
-    /**
-     * @brief Returns a non-owning pointer to the string stored in this class
-     */
-    auto name() const -> char const *;
+[[gnu::visibility("default")]]
+extern int exit_pipe[2];
 
-private:
-    std::string m_name;
-};
+[[gnu::visibility("default")]]
+extern ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count);
+
+[[gnu::visibility("default")]]
+void *__nullable io_loop(void *__nonnull arg);
+
+[[gnu::visibility("default")]]
+void setup_io_redirection(const bool is_injected);
+
+} // namespace redirect_to_os_log
