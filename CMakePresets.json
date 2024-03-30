@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 28,
@@ -49,7 +49,7 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_CXX_EXTENSIONS": "ON",
-        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD": "23",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON"
       }
     },
@@ -74,7 +74,10 @@
       "name": "ci-darwin",
       "generator": "Unix Makefiles",
       "hidden": true,
-      "inherits": ["flags-appleclang", "ci-std"],
+      "inherits": [
+        "flags-appleclang",
+        "ci-std"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -94,7 +97,10 @@
     },
     {
       "name": "ci-coverage",
-      "inherits": ["coverage-darwin", "dev-mode"],
+      "inherits": [
+        "coverage-darwin",
+        "dev-mode"
+      ],
       "cacheVariables": {
         "COVERAGE_HTML_COMMAND": ""
       }
@@ -102,7 +108,10 @@
     {
       "name": "ci-sanitize",
       "binaryDir": "${sourceDir}/build/sanitize",
-      "inherits": ["ci-darwin", "dev-mode"],
+      "inherits": [
+        "ci-darwin",
+        "dev-mode"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Sanitize",
         "CMAKE_CXX_FLAGS_SANITIZE": "-U_FORTIFY_SOURCE -O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common"
@@ -115,7 +124,42 @@
     },
     {
       "name": "ci-macos",
-      "inherits": ["ci-build", "ci-darwin", "dev-mode"]
+      "inherits": [
+        "ci-build",
+        "ci-darwin",
+        "dev-mode"
+      ]
+    },
+    {
+      "name": "dev-macos",
+      "generator": "Ninja",
+      "hidden": true,
+      "inherits": [
+        "ci-build",
+        "flags-appleclang",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "dev-macos-debug",
+      "inherits": [
+        "dev-macos"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "dev-macos-release",
+      "inherits": [
+        "dev-macos"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ]
 }
