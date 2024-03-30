@@ -1,4 +1,3 @@
-#include <argparse/argparse.hpp>
 #include <redirect-to-os-log/redirect-to-os-log.hpp>
 
 #include <cerrno>
@@ -7,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <sstream>
 #include <sys/stat.h>
 #include <system_error>
