@@ -12,6 +12,7 @@ project(
 
 include(cmake/variables.cmake)
 
+add_subdirectory(3rdparty/argparse EXCLUDE_FROM_ALL)
 add_subdirectory(lib)
 add_subdirectory(tool)
 if(BUILD_TESTING)

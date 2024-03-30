@@ -15,9 +15,8 @@ static pthread_t io_loop_thread;
 [[gnu::constructor]]
 static void redirect_to_os_log_injector_ctor() {
     // Spawn the I/O loop thread
-    redirect_to_os_log::log_args args = {.is_injected = true,
-                                         .echo = redirect_to_os_log::should_echo_from_env_var(),
-                                         .subsystem = getprogname()};
+    redirect_to_os_log::log_args args = {
+        .is_injected = true, .echo = false, .subsystem = getprogname()};
     assert(!pthread_create(&io_loop_thread, nullptr, redirect_to_os_log::io_loop,
                            reinterpret_cast<void *>(&args)));
 }

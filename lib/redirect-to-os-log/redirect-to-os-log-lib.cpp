@@ -116,7 +116,7 @@ static void setup_io_redirection(const char *const __nonnull subsystem, const bo
 void *__nullable io_loop(void *__nonnull arg) {
     const auto args        = reinterpret_cast<const log_args *>(arg);
     const auto is_injected = args->is_injected;
-    const auto echo        = args->echo;
+    const auto echo        = args->echo || should_echo_from_env_var();
     setup_io_redirection(args->subsystem, is_injected);
 
     struct kevent kev[3];

@@ -14,9 +14,6 @@ struct log_args {
 extern int exit_pipe[2];
 
 [[gnu::visibility("default")]]
-extern bool should_echo_from_env_var();
-
-[[gnu::visibility("default")]]
 extern ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count);
 
 [[gnu::visibility("default")]]
