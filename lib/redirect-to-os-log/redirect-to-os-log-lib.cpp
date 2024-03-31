@@ -122,9 +122,10 @@ static void write_and_log(int fd, const std::string &line, bool echo) {
 
 static void log_output(int fd, bool echo) {
     char buffer[1024];
-    ssize_t bytes_read;
 
-    while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
+    while (true) {
+        const auto bytes_read = read(fd, buffer, sizeof(buffer));
+        posix_check(static_cast<int>(bytes_read), "log_output read");
         if (echo) {
             safe_write(fd, buffer, bytes_read);
         }
@@ -136,25 +137,29 @@ static void log_output(int fd, bool echo) {
 
 static void setup_io_redirection(const char *const __nonnull subsystem, const bool is_injected) {
     // Create pipes for stdout and stderr
-    assert(!pipe(stdout_pipe));
-    assert(!pipe(stderr_pipe));
+    posix_check(pipe(stdout_pipe), "pipe(stdout_pipe)");
+    posix_check(pipe(stderr_pipe), "pipe(stderr_pipe)");
     if (is_injected) {
-        assert(!pipe(exit_pipe));
+        posix_check(pipe(exit_pipe), "pipe(exit_pipe)");
     }
 
     // Duplicate the original stdout and stderr
     original_stdout = dup(STDOUT_FILENO);
-    assert(original_stdout >= 0);
+    posix_check(original_stdout, "original_stdout = dup(STDOUT_FILENO)");
     original_stderr = dup(STDERR_FILENO);
-    assert(original_stderr >= 0);
+    posix_check(original_stderr, "original_stderr = dup(STDERR_FILENO)");
 
     // Redirect stdout and stderr to the write ends of the pipes
-    assert(dup2(stdout_pipe[1], STDOUT_FILENO) == STDOUT_FILENO);
-    assert(dup2(stderr_pipe[1], STDERR_FILENO) == STDERR_FILENO);
+    const auto dup2_stdout_pipe_res = dup2(stdout_pipe[1], STDOUT_FILENO);
+    posix_check(dup2_stdout_pipe_res, "dup2_stdout_pipe_res = dup2(stdout_pipe[1], STDOUT_FILENO)");
+    assert(dup2_stdout_pipe_res == STDOUT_FILENO);
+    const auto dup2_stderr_pipe_res = dup2(stderr_pipe[1], STDERR_FILENO);
+    posix_check(dup2_stderr_pipe_res, "dup2_stderr_pipe_res = dup2(stderr_pipe[1], STDERR_FILENO)");
+    assert(dup2_stdout_pipe_res == STDERR_FILENO);
 
     // Close the original write ends of the pipes
-    assert(!close(stdout_pipe[1]));
-    assert(!close(stderr_pipe[1]));
+    posix_check(close(stdout_pipe[1]), "close(stdout_pipe[1])");
+    posix_check(close(stderr_pipe[1]), "close(stderr_pipe[1])");
 
     logger_stdout = os_log_create(subsystem, "stdout");
     logger_stderr = os_log_create(subsystem, "stderr");
@@ -167,8 +172,8 @@ void *__nullable io_loop(void *__nonnull arg) {
     setup_io_redirection(args->subsystem, is_injected);
 
     struct kevent kev[3];
-    int kq = kqueue();
-    assert(kq >= 0);
+    const auto kq = kqueue();
+    posix_check(kq, "kq = kqueue()");
     bool do_exit = false;
 
     // Set up the kevents to monitor the read ends of the pipes
@@ -177,12 +182,15 @@ void *__nullable io_loop(void *__nonnull arg) {
     if (is_injected) {
         EV_SET(&kev[2], exit_pipe[0], EVFILT_READ, EV_ADD, 0, 0, nullptr);
     }
-    assert(kevent(kq, kev, 2 + is_injected, nullptr, 0, nullptr) == 2 + is_injected);
+    const auto kevent_init_res = kevent(kq, kev, 2 + is_injected, nullptr, 0, nullptr);
+    posix_check(kevent_init_res, "kevent(kq, kev, 2 + is_injected, nullptr, 0, nullptr) (init)");
+    assert(kevent_init_res == 2 + is_injected);
 
     while (!do_exit) {
         // Wait for events
         struct kevent event_list[3];
-        int nev = kevent(kq, nullptr, 0, event_list, 2 + is_injected, nullptr);
+        const auto nev = kevent(kq, nullptr, 0, event_list, 2 + is_injected, nullptr);
+        posix_check(nev, "kevent(kq, nullptr, 0, event_list, 2 + is_injected, nullptr) (loop)");
         assert(nev >= 0);
         for (int i = 0; i < nev; ++i) {
             int fd = static_cast<int>(event_list[i].ident);
@@ -195,7 +203,7 @@ void *__nullable io_loop(void *__nonnull arg) {
         }
     }
 
-    assert(!close(kq));
+    posix_check(close(kq), "close(kq)");
     if (is_injected) {
         pthread_exit(nullptr);
     }
