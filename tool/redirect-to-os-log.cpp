@@ -7,6 +7,7 @@
 #include <cstring>
 #include <filesystem>
 #include <optional>
+#include <spawn.h>
 #include <sstream>
 #include <sys/stat.h>
 #include <system_error>
@@ -140,8 +141,11 @@ int main(int argc, const char *const *argv) {
         }
     }
 
-    const char *const *exe_argv = &argv[2 + do_echo];
-    const auto subsystem        = exe_path.filename().c_str();
+    const auto exe_argv  = &argv[2 + do_echo];
+    const auto subsystem = exe_path.filename().c_str();
+
+    posix_spawn_file_actions_t action;
+    posix_spawn_file_actions_init(&action);
 
     // Run the I/O loop thread
     redirect_to_os_log::log_args args = {

@@ -1,5 +1,6 @@
 #include "redirect-to-os-log/redirect-to-os-log.hpp"
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -18,7 +19,39 @@
 
 extern "C" const char *const *const environ;
 
+extern "C" [[gnu::noreturn, gnu::cold, gnu::format(__printf__, 1, 2)]]
+void abort_report_np(const char *const __nonnull fmt, ...);
+
+struct crashreporter_annotations_t {
+    uint64_t version;
+    char *message;
+    char *signature_string;
+    char *backtrace;
+    char *message2;
+    uint64_t thread;
+    uint32_t dialog_mode;
+    uint32_t padding0;
+    uint32_t abort_cause;
+    uint32_t padding1;
+};
+
+extern "C" {
+[[gnu::visibility("hidden"), gnu::section("__DATA,__crash_info")]]
+static crashreporter_annotations_t gCRAnnotations = {.version = 5};
+}
+
+extern "C" [[gnu::noreturn, gnu::cold, gnu::format(__printf__, 2, 3)]]
+void _simple_dprintf(int fd, const char *const __nonnull fmt, ...);
+
 namespace redirect_to_os_log {
+
+static auto CRGetCrashLogMessage() {
+    return gCRAnnotations.message;
+}
+
+static void CRSetCrashLogMessage(char *msg) {
+    gCRAnnotations.message = msg;
+}
 
 static int stdout_pipe[2];
 static int stderr_pipe[2];
@@ -38,18 +71,30 @@ bool should_echo_from_env_var() {
     return false;
 }
 
+void posix_check(const int retval, const char *const __nonnull msg,
+                 const std::source_location location) {
+    const auto cerrno = errno;
+    if (REDIRECT_UNLIKELY(retval < 0)) {
+        abort_report_np("POSIX error: function: %s, file %s, line %u:%u: retval: %d errno: %d aka "
+                        "'%s' description: '%s'.\n",
+                        location.function_name(), location.file_name(), location.line(),
+                        location.column(), retval, cerrno, strerror(cerrno), msg);
+    }
+}
+
 ssize_t safe_write(int fd, const void *__nonnull buf, ssize_t count) {
     assert(count >= 0);
     const auto written = count;
     auto buffer        = static_cast<const char *>(buf);
 
     while (count > 0) {
-        ssize_t res = write(fd, buffer, static_cast<size_t>(count));
+        ssize_t res       = write(fd, buffer, static_cast<size_t>(count));
+        const auto cerrno = errno;
         if (res < 0) {
-            if (errno == EINTR) {
+            if (cerrno == EINTR) {
                 continue; // Interrupted by a signal, try again
             } else {
-                assert(false && "safe_write failed");
+                posix_check(static_cast<int>(res), "safe_write");
             }
         }
         buffer += res;
@@ -62,18 +107,20 @@ static void write_and_log(int fd, const std::string &line, bool echo) {
     const size_t max_log_length = 1024;
 
     if (echo) {
-        write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, line.c_str(), line.length());
-        write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, "\n", 1);
+        safe_write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, line.c_str(),
+                   static_cast<ssize_t>(line.length()));
+        safe_write(fd == STDOUT_FILENO ? STDOUT_FILENO : STDERR_FILENO, "\n", 1);
     }
 
     for (size_t pos = 0; pos < line.length(); pos += max_log_length) {
         std::string chunk = line.substr(pos, max_log_length);
-        os_log_with_type(logger, fd == STDOUT_FILENO ? OS_LOG_TYPE_DEFAULT : OS_LOG_TYPE_ERROR,
+        os_log_with_type(fd == STDOUT_FILENO ? logger_stdout : logger_stderr,
+                         fd == STDOUT_FILENO ? OS_LOG_TYPE_DEFAULT : OS_LOG_TYPE_ERROR,
                          "%{public}s", chunk.c_str());
     }
 }
 
-static void log_output(int fd, os_log_t logger, bool echo) {
+static void log_output(int fd, bool echo) {
     char buffer[1024];
     ssize_t bytes_read;
 
